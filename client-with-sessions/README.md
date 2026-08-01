@@ -1,142 +1,324 @@
-# Sessions Frontend Client
 
-This React application provides a complete **session-based authentication flow** (sign up, log in, check session, log out). It is designed to connect to your **Flask backend** that manages user state using **Flask sessions**.
+# Flask Notes API with JWT Authentication
 
-You will not need to modify this frontend. However, your backend must implement and support the routes described below for the client to function properly.
+## Project Description
 
----
+A secure RESTful Flask API for managing personal notes with JWT-based authentication and full CRUD operations. Users can create, read, update, and delete their own notes with pagination support. The API ensures that users can only access and modify their own data, providing robust security and data isolation.
 
-## Getting Started
+## Features
 
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- JWT-based authentication (signup, login, refresh token)
+- Full CRUD operations for notes
+- User-specific data isolation
+- Pagination for notes listing
+- Note categories and archiving
+- Input validation with Marshmallow
+- Database seeding with sample data
+- Comprehensive test suite
 
-2. **Start the application**
-   ```bash
-   npm start
-   ```
+## Tech Stack
 
-3. **Backend requirements**
-   - Must use **Flask sessions** to store and manage authentication.
-   - Expose routes that manage login, signup, logout, and session checking.
-   - Should run on port 5555 to match proxy in package.json.
-   - Return JSON responses for all routes.
+- Flask 2.2.2
+- Flask-SQLAlchemy 3.0.3
+- Flask-Migrate 4.0.0
+- Flask-JWT-Extended 4.5.2
+- Flask-Bcrypt 1.0.1
+- Marshmallow 3.20.1
+- SQLite (development)
+- Pytest 7.2.0
 
----
+## Installation
 
-## Auth Flow Overview
+### Prerequisites
 
-This app handles user authentication and session state using the following endpoints:
+- Python 3.8+
+- Pipenv or pip
+- Git
 
----
+### Setup Instructions
 
-### POST `/login`
+```bash
+# 1. Clone the repository
+git clone https://github.com/roy9html/flask-c10-summative-lab-sessions-and-jwt-clients.git
+cd flask-c10-summative-lab-sessions-and-jwt-clients
 
-**Description**: Authenticates an existing user and sets the session cookie.  
-**Headers**:
-```json
+# 2. Create and activate virtual environment
+python -m venv venv38
+source venv38/bin/activate  # On Windows: venv38\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+# OR if using Pipenv:
+# pipenv install
+# pipenv shell
+
+# 4. Set up environment variables
+export FLASK_APP=app.py
+export FLASK_ENV=development
+
+# 5. Initialize database
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+
+# 6. Seed the database with sample data
+python seed.py
+
+# 7. Run the application
+python app.py
+Running the Application
+bash
+# Start the Flask development server
+python app.py
+
+# The API will be available at:
+# http://localhost:5000
+To run in production, use a production WSGI server like Gunicorn:
+
+bash
+gunicorn app:app
+API Endpoints
+Authentication Endpoints
+Method	Endpoint	Description	Authentication
+POST	/auth/signup	Register a new user	None
+POST	/auth/login	Login and get JWT tokens	None
+POST	/auth/refresh	Refresh access token	Refresh token required
+GET	/auth/me	Get current user information	Access token required
+POST	/auth/logout	Logout user (client discards token)	Access token required
+Notes Endpoints (Requires Authentication)
+Method	Endpoint	Description	Query Parameters
+GET	/api/notes	Get all notes for current user	page (default: 1), per_page (default: 10, max: 100)
+POST	/api/notes	Create a new note	None
+GET	/api/notes/<id>	Get a specific note by ID	None
+PUT	/api/notes/<id>	Update a note by ID	None
+DELETE	/api/notes/<id>	Delete a note by ID	None
+PUT	/api/notes/archive/<id>	Toggle archive status of a note	None
+GET	/api/notes/categories	Get all categories used by user	None
+API Usage Examples
+1. Register a New User
+bash
+curl -X POST http://localhost:5000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john_doe",
+    "email": "john@example.com",
+    "password": "securepassword123"
+  }'
+Response:
+
+json
 {
-  "Content-Type": "application/json"
+  "user": {
+    "id": 1,
+    "username": "john_doe",
+    "email": "john@example.com",
+    "created_at": "2024-01-15T10:30:00"
+  },
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
-```
+2. Login
+bash
+curl -X POST http://localhost:5000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john_doe",
+    "password": "securepassword123"
+  }'
+Response:
 
-**Body**:
-```json
+json
 {
-  "username": "string",
-  "password": "string"
+  "user": {
+    "id": 1,
+    "username": "john_doe",
+    "email": "john@example.com"
+  },
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
-```
+3. Get Current User Info
+bash
+curl -X GET http://localhost:5000/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+Response:
 
-**Response**:
-```json
+json
 {
   "id": 1,
-  "username": "string"
+  "username": "john_doe",
+  "email": "john@example.com",
+  "created_at": "2024-01-15T10:30:00"
 }
-```
+4. Create a Note
+bash
+curl -X POST http://localhost:5000/api/notes \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My First Note",
+    "content": "This is the content of my first note.",
+    "category": "Personal"
+  }'
+Response:
 
----
-
-### POST `/signup`
-
-**Description**: Registers a new user and logs them in by setting the session.  
-**Headers**:
-```json
-{
-  "Content-Type": "application/json"
-}
-```
-
-**Body**:
-```json
-{
-  "username": "string",
-  "password": "string",
-  "password_confirmation": "string"
-}
-```
-
-**Response**:
-```json
+json
 {
   "id": 1,
-  "username": "string"
+  "title": "My First Note",
+  "content": "This is the content of my first note.",
+  "category": "Personal",
+  "is_archived": false,
+  "created_at": "2024-01-15T10:35:00",
+  "updated_at": "2024-01-15T10:35:00",
+  "user_id": 1
 }
-```
+5. Get All Notes (with Pagination)
+bash
+curl -X GET "http://localhost:5000/api/notes?page=1&per_page=5" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+Response:
 
----
-
-### 🔄 GET `/check_session`
-
-**Description**: Verifies if a user session is active.  
-**Headers**: _(none required)_
-
-**Response (if logged in)**:
-```json
+json
 {
-  "id": 1,
-  "username": "string"
+  "notes": [
+    {
+      "id": 1,
+      "title": "My First Note",
+      "content": "This is the content of my first note.",
+      "category": "Personal",
+      "is_archived": false,
+      "created_at": "2024-01-15T10:35:00",
+      "updated_at": "2024-01-15T10:35:00",
+      "user_id": 1
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 5,
+    "total": 10,
+    "pages": 2,
+    "has_prev": false,
+    "has_next": true
+  }
 }
-```
+6. Update a Note
+bash
+curl -X PUT http://localhost:5000/api/notes/1 \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Updated Note Title",
+    "content": "Updated content"
+  }'
+7. Archive a Note
+bash
+curl -X PUT http://localhost:5000/api/notes/archive/1 \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+8. Delete a Note
+bash
+curl -X DELETE http://localhost:5000/api/notes/1 \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+9. Get All Categories
+bash
+curl -X GET http://localhost:5000/api/notes/categories \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+Response:
 
-**Response (if not logged in)**:
-```json
-{}
-```
+json
+{
+  "categories": ["Personal", "Work", "Study", "Ideas"]
+}
+Testing
+bash
+# Run all tests
+python -m pytest tests/ -v
 
----
+# Run tests with coverage report
+python -m pytest tests/ -v --cov=app --cov-report=term
 
-### DELETE `/logout`
+# Run specific test file
+python -m pytest tests/test_api.py -v
 
-**Description**: Ends the session by removing `user_id` from the session store.  
-**Headers**: _(none required)_
+# Run specific test function
+python -m pytest tests/test_api.py::test_login_success -v
+Database Seeding
+bash
+# Seed the database with sample data
+python seed.py
+The seed script creates:
 
-**Response**:
-```json
-{}
-```
+5 users with unique usernames and emails
 
----
+10 notes per user with random categories
 
-## Session Management
+Test users with password: password123
 
-- When a user logs in or signs up, a session is created on the server.
-- `check_session` is used on initial load to verify if a user is still logged in.
-- On logout, the session is destroyed server-side and the frontend state is cleared.
+Error Handling
+The API returns appropriate HTTP status codes:
 
----
+Status Code	Description
+200	Success
+201	Created
+400	Bad Request (validation error)
+401	Unauthorized (missing or invalid token)
+404	Not Found
+500	Internal Server Error
+Development
+Running Migrations
+bash
+# Create a new migration
+flask db migrate -m "Description of changes"
 
-## Custom Resource Endpoints
+# Apply migrations
+flask db upgrade
 
-This frontend does **not include fetch calls** for your custom resource (e.g., `/notes`, `/entries`, `/tasks`). These will be added by the frontend team after your backend is complete.
+# Rollback migration
+flask db downgrade
+Adding New Models
+Add model class to app/models.py
 
-Ensure your resource routes:
-- Are fully protected: require login to access.
-- Use `session['user_id']` to associate and filter data per user.
-- Follow RESTful patterns: `GET`, `POST`, `PATCH`, `DELETE`.
-- Include pagination support where appropriate (e.g., `GET /notes?page=1&per_page=10`).
+Create migration: flask db migrate -m "Added new model"
 
----
+Apply migration: flask db upgrade
+
+Project Structure
+text
+flask-c10-summative-lab-sessions-and-jwt-clients/
+├── app/
+│   ├── __init__.py          # Flask app factory
+│   ├── models.py            # Database models (User, Note)
+│   ├── schemas.py           # Marshmallow schemas
+│   └── routes/
+│       ├── __init__.py
+│       ├── auth.py          # Authentication routes
+│       └── notes.py         # Notes CRUD routes
+├── migrations/              # Database migrations
+├── tests/                   # Test files
+├── instance/                # Database file
+├── app.py                   # Application entry point
+├── config.py               # Configuration
+├── seed.py                 # Database seeding script
+├── requirements.txt        # Python dependencies
+├── Pipfile                 # Pipenv dependencies
+├── .gitignore              # Git ignore file
+└── README.md              # Documentation
+Security Features
+Passwords hashed using Bcrypt
+
+JWT tokens with expiration
+
+User-specific data isolation
+
+Input validation and sanitization
+
+Protected routes requiring authentication
+
+CORS support configured
+
+License
+MIT
+
+Contributors
+Brenden Nyaga
+
